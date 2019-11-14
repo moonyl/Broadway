@@ -1,4 +1,4 @@
-/*
+﻿/*
 
 
 usage:
@@ -100,8 +100,8 @@ p.decode(<binary>);
     
     var lastWidth;
     var lastHeight;
-    var onPictureDecoded = function(buffer, width, height, infos) {
-      self.onPictureDecoded(buffer, width, height, infos);
+    var onPictureDecoded = function(buffer, width, height, infos, show) {
+      self.onPictureDecoded(buffer, width, height, infos, show);
       
       var startTime = nowValue();
       
@@ -109,23 +109,24 @@ p.decode(<binary>);
         return;
       };
       
-      self.renderFrame({
-        canvasObj: self.canvasObj,
-        data: buffer,
-        width: width,
-        height: height
-      });
-      
-      if (self.onRenderFrameComplete){
-        self.onRenderFrameComplete({
+      if (show) {
+        self.renderFrame({
+          canvasObj: self.canvasObj,
           data: buffer,
           width: width,
-          height: height,
-          infos: infos,
-          canvasObj: self.canvasObj
+          height: height
         });
-      };
-      
+
+        if (self.onRenderFrameComplete) {
+          self.onRenderFrameComplete({
+            data: buffer,
+            width: width,
+            height: height,
+            infos: infos,
+            canvasObj: self.canvasObj
+          });
+        }
+      }
     };
     
     // provide size
@@ -146,35 +147,57 @@ p.decode(<binary>);
           return;
         };
         
-        onPictureDecoded.call(self, new Uint8Array(data.buf, 0, data.length), data.width, data.height, data.infos);
-        
-      }, false);
-      
-      worker.postMessage({type: "Broadway.js - Worker init", options: {
-        rgb: !webgl,
-        memsize: this.memsize,
-        reuseMemory: this._config.reuseMemory ? true : false
-      }});
+          onPictureDecoded.call(
+            self,
+            new Uint8Array(data.buf, 0, data.length),
+            data.width,
+            data.height,
+            data.infos,
+            data.show
+          );
+        },
+        false
+      );
+
+      worker.postMessage({
+        type: "Broadway.js - Worker init",
+        options: {
+          rgb: !webgl,
+          memsize: this.memsize,
+          reuseMemory: this._config.reuseMemory ? true : false
+        }
+      });
       
       if (this._config.transferMemory){
-        this.decode = function(parData, parInfo){
+        this.decode = function(parData, show, parInfo) {
           // no copy
           // instead we are transfering the ownership of the buffer
           // dangerous!!!
           
-          worker.postMessage({buf: parData.buffer, offset: parData.byteOffset, length: parData.length, info: parInfo}, [parData.buffer]); // Send data to our worker.
+          worker.postMessage(
+            {
+              buf: parData.buffer,
+              offset: parData.byteOffset,
+              length: parData.length,
+              info: parInfo,
+              show
+            },
+            [parData.buffer]
+          ); // Send data to our worker.
         };
         
       }else{
-        this.decode = function(parData, parInfo){
+        this.decode = function(parData, show, parInfo) {
           // Copy the sample so that we only do a structured clone of the
           // region of interest
           var copyU8 = new Uint8Array(parData.length);
           copyU8.set( parData, 0, parData.length );
-          worker.postMessage({buf: copyU8.buffer, offset: 0, length: parData.length, info: parInfo}, [copyU8.buffer]); // Send data to our worker.
+          worker.postMessage(
+            { buf: copyU8.buffer, offset: 0, length: parData.length, info: parInfo, show },
+            [copyU8.buffer]
+          ); // Send data to our worker.
         };
-        
-      };
+      }
       
       if (this._config.reuseMemory){
         this.recycleMemory = function(parArray){
@@ -191,7 +214,7 @@ p.decode(<binary>);
       });
       this.decoder.onPictureDecoded = onPictureDecoded;
 
-      this.decode = function(parData, parInfo){
+      this.decode = function(parData, show, parInfo) {
         self.decoder.decode(parData, parInfo);
       };
       
@@ -214,8 +237,7 @@ p.decode(<binary>);
   };
   
   Player.prototype = {
-    
-    onPictureDecoded: function(buffer, width, height, infos){},
+    onPictureDecoded: function(buffer, width, height, infos, show) {},
     
     // call when memory of decoded frames is not used anymore
     recycleMemory: function(buf){

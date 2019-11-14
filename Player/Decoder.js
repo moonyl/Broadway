@@ -1,4 +1,4 @@
-// universal module definition
+﻿// universal module definition
 (function (root, factory) {
     if (typeof define === 'function' && define.amd) {
         // AMD. Register as an anonymous module.
@@ -131,6 +131,12 @@ var wa=[Db,rb];var xa=[Eb,qb,sb,pb];var ya=[Fb,Ya,Xa,Fb];var za=[Gb,tb];return{_
       };
       this.infoAr = [];
       
+      var show = true;
+      if (this.infoShow.length){
+        //console.log("has length");
+        show = this.infoShow.pop();
+      }
+      
       if (this.options.rgb){
         if (!asmInstance){
           asmInstance = getAsm(width, height);
@@ -153,7 +159,7 @@ var wa=[Db,rb];var xa=[Eb,qb,sb,pb];var ya=[Fb,Ya,Xa,Fb];var za=[Gb,tb];return{_
       if (doInfo){
         infos[0].finishDecoding = nowValue();
       };
-      this.onPictureDecoded(buffer, width, height, infos);
+      this.onPictureDecoded(buffer, width, height, infos, show);
     }.bind(this);
     
     var ignore = false;
@@ -226,6 +232,7 @@ var wa=[Db,rb];var xa=[Eb,qb,sb,pb];var ya=[Fb,Ya,Xa,Fb];var za=[Gb,tb];return{_
     this.pictureBuffers = {};
     // collect extra infos that are provided with the nal units
     this.infoAr = [];
+    this.infoShow = [];
     
     this.onPictureDecoded = function (buffer, width, height, infos) {
       
@@ -241,7 +248,7 @@ var wa=[Db,rb];var xa=[Eb,qb,sb,pb];var ya=[Fb,Ya,Xa,Fb];var za=[Gb,tb];return{_
     if (this.options.sliceMode){
       sliceNum = this.options.sliceNum;
       
-      this.decode = function decode(typedAr, parInfo, copyDoneFun) {
+      this.decode = function decode(typedAr, parInfo, show, copyDoneFun) {
         this.infoAr.push(parInfo);
         parInfo.startDecoding = nowValue();
         var nals = parInfo.nals;
@@ -317,7 +324,8 @@ var wa=[Db,rb];var xa=[Eb,qb,sb,pb];var ya=[Fb,Ya,Xa,Fb];var za=[Gb,tb];return{_
       };
       
     }else{
-      this.decode = function decode(typedAr, parInfo) {
+      this.decode = function decode(typedAr, parInfo, show) {
+        this.infoShow.push(show);
         // console.info("Decoding: " + buffer.length);
         // collect infos
         if (parInfo){
@@ -712,6 +720,7 @@ var wa=[Db,rb];var xa=[Eb,qb,sb,pb];var ya=[Fb,Ya,Xa,Fb];var za=[Gb,tb];return{_
             decoder.decode(
               new Uint8Array(e.data.buf, e.data.offset || 0, e.data.length), 
               e.data.info, 
+              e.data.show, 
               function(){
                 if (sliceMode && sliceNum !== lastSliceNum){
                   postMessage(e.data, [e.data.buf]);
@@ -816,7 +825,8 @@ var wa=[Db,rb];var xa=[Eb,qb,sb,pb];var ya=[Fb,Ya,Xa,Fb];var za=[Gb,tb];return{_
             };
             
           }else{
-            decoder.onPictureDecoded = function (buffer, width, height, infos) {
+            decoder.onPictureDecoded = function (buffer, width, height, infos, show) {
+
               if (buffer) {
                 buffer = new Uint8Array(buffer);
               };
@@ -830,7 +840,8 @@ var wa=[Db,rb];var xa=[Eb,qb,sb,pb];var ya=[Fb,Ya,Xa,Fb];var za=[Gb,tb];return{_
                 length: buffer.length,
                 width: width, 
                 height: height, 
-                infos: infos
+                infos: infos,
+                show
               }, [copyU8.buffer]); // 2nd parameter is used to indicate transfer of ownership
 
             };
